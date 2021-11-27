@@ -11,3 +11,8 @@ class AlreadyAccepted(Exception):
 class UserRegisteredEmail(Exception):
     """This email is already registered by a site user """
     pass
+
+
+class UserRegisteredPhone(Exception):
+    """This phone is already registered by a site user """
+    pass

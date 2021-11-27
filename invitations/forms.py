@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.utils.translation import ugettext_lazy as _
 
 from .adapters import get_invitations_adapter
-from .exceptions import AlreadyAccepted, AlreadyInvited, UserRegisteredEmail
+from .exceptions import AlreadyAccepted, AlreadyInvited, UserRegisteredEmail, UserRegisteredPhone
 from .utils import get_invitation_model
 
 Invitation = get_invitation_model()
@@ -45,7 +45,44 @@ class CleanEmailMixin(object):
         return email
 
 
-class InviteForm(forms.Form, CleanEmailMixin):
+class CleanPhoneNumberMixin(object):
+
+    def validate_invitation(self, phone_number):
+        if Invitation.objects.all_valid().filter(
+                phone_number=phone_number, accepted=False):
+            raise AlreadyInvited
+        elif Invitation.objects.filter(
+                phone_number=phone_number, accepted=True):
+            raise AlreadyAccepted
+        elif get_user_model().objects.filter(phone_number=phone_number):
+            raise UserRegisteredPhone
+        else:
+            return True
+
+    def clean_phone(self):
+        phone_number = self.cleaned_data["phone_number"]
+        phone_number = get_invitations_adapter().clean_phone_number(phone_number)
+
+        errors = {
+            "already_invited": _("This e-mail address has already been"
+                                 " invited."),
+            "already_accepted": _("This e-mail address has already"
+                                  " accepted an invite."),
+            "email_in_use": _("An active user is using this e-mail address"),
+            "phone_in_use": _("An active user is using this phone no."),
+        }
+        try:
+            self.validate_invitation(phone_number)
+        except(AlreadyInvited):
+            raise forms.ValidationError(errors["already_invited"])
+        except(AlreadyAccepted):
+            raise forms.ValidationError(errors["already_accepted"])
+        except(UserRegisteredPhone):
+            raise forms.ValidationError(errors["phone_in_use"])
+        return phone_number
+
+
+class InviteForm(forms.Form, CleanEmailMixin, CleanPhoneNumberMixin):
 
     email = forms.EmailField(
         label=_("E-mail"),

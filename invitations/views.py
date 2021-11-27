@@ -160,6 +160,9 @@ class AcceptInvite(SingleObjectMixin, View):
         get_invitations_adapter().stash_verified_email(
             self.request, invitation.email)
 
+        get_invitations_adapter().stash_verified_phone(
+            self.request, invitation.phone_number)
+
         return redirect(self.get_signup_redirect())
 
     def get_object(self, queryset=None):
@@ -180,15 +183,22 @@ def accept_invitation(invitation, request, signal_sender):
 
     invite_accepted.send(sender=signal_sender, invitation=invitation, email=invitation.email, request=request)
 
-    get_invitations_adapter().add_message(
-        request,
-        messages.SUCCESS,
-        'invitations/messages/invite_accepted.txt',
-        {'email': invitation.email})
+    if invitation.email:
+        get_invitations_adapter().add_message(
+            request,
+            messages.SUCCESS,
+            'invitations/messages/invite_accepted.txt',
+            {'email': invitation.email})
+    else:
+        get_invitations_adapter().add_message(
+            request,
+            messages.SUCCESS,
+            'invitations/messages/invite_accepted.txt',
+            {'phone_number': invitation.phone_number})
 
 
 def accept_invite_after_signup(sender, request, user, **kwargs):
-    invitation = Invitation.objects.filter(email__iexact=user.email).first()
+    invitation = Invitation.objects.filter(phone_number=user.phone_number).first()
     if invitation:
         accept_invitation(invitation=invitation,
                           request=request,
